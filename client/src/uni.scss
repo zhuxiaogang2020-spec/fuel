@@ -1,0 +1,132 @@
+/* Global Style Variables - Fuel2 */
+:root {
+  /* 主色调 */
+  --color-primary: #FF6B35;
+  --color-primary-dark: #E55A2B;
+  --color-primary-light: #FF8C5A;
+
+  /* 辅助色 */
+  --color-success: #00C9A7;
+  --color-warning: #FFD93D;
+  --color-danger: #EF4444;
+
+  /* 背景色 */
+  --color-bg: #F0F4F8;
+  --color-card: #FFFFFF;
+
+  /* 文字色 */
+  --color-text: #1A1A2E;
+  --color-text-secondary: #6B7280;
+
+  /* 卡片样式 */
+  --card-radius: 20rpx;
+  --card-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+
+  /* 按钮样式 */
+  --btn-radius: 40rpx;
+  --btn-primary-bg: linear-gradient(135deg, #FF6B35, #E55A2B);
+  --btn-danger-bg: linear-gradient(135deg, #EF4444, #DC2626);
+
+  /* 字体大小 */
+  --font-size-xs: 20rpx;
+  --font-size-sm: 24rpx;
+  --font-size-base: 28rpx;
+  --font-size-lg: 32rpx;
+  --font-size-xl: 40rpx;
+  --font-size-2xl: 48rpx;
+  --font-size-3xl: 64rpx;
+
+  /* 间距 */
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 48rpx;
+}
+
+/* 全局样式 */
+page {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--font-size-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 卡片基础样式 */
+.card {
+  background: var(--color-card);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* 主按钮 */
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: white;
+  border: none;
+  border-radius: var(--btn-radius);
+  padding: 24rpx 48rpx;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  text-align: center;
+  transition: transform 0.2s ease;
+  line-height: 1.5;
+}
+
+.btn-primary:active {
+  transform: scale(0.96);
+}
+
+/* 危险按钮 */
+.btn-danger {
+  background: var(--btn-danger-bg);
+  color: white;
+  border: none;
+  border-radius: var(--btn-radius);
+  padding: 24rpx 48rpx;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+/* 输入框 */
+.input-field {
+  background: var(--color-bg);
+  border: 2rpx solid transparent;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: var(--font-size-lg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-field:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4rpx rgba(255, 107, 53, 0.15);
+  outline: none;
+}
+
+/* 价格高亮 */
+.price-highlight {
+  color: var(--color-warning);
+  font-weight: 700;
+  font-size: var(--font-size-xl);
+}
+
+/* 最低价标签 */
+.cheapest-tag {
+  background: var(--color-success);
+  color: white;
+  font-size: var(--font-size-xs);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
+/* 安全区适配 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

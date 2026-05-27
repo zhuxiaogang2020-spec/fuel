@@ -1,0 +1,132 @@
+{
+  "stations": [
+    {
+      "externalId": "mock_cn_001",
+      "source": "mock",
+      "name": "中石化人民路站",
+      "brand": "中石化",
+      "lat": 29.5647,
+      "lng": 106.5507,
+      "address": "重庆市渝中区人民路123号",
+      "prices": {
+        "regular": 7.82,
+        "mid": 8.31,
+        "premium": 9.05,
+        "diesel": 7.52
+      },
+      "rating": 4.8
+    },
+    {
+      "externalId": "mock_cn_002",
+      "source": "mock",
+      "name": "壳牌解放路站",
+      "brand": "壳牌",
+      "lat": 29.5589,
+      "lng": 106.5572,
+      "address": "重庆市渝中区解放路456号",
+      "prices": {
+        "regular": 7.91,
+        "mid": 8.45,
+        "premium": 9.12,
+        "diesel": 7.60
+      },
+      "rating": 4.5
+    },
+    {
+      "externalId": "mock_cn_003",
+      "source": "mock",
+      "name": "民营宏达加油站",
+      "brand": "民营",
+      "lat": 29.5489,
+      "lng": 106.5356,
+      "address": "重庆市渝中区中山路789号",
+      "prices": {
+        "regular": 7.65,
+        "mid": 8.15,
+        "premium": 8.85,
+        "diesel": 7.35
+      },
+      "rating": 3.8
+    },
+    {
+      "externalId": "mock_ca_001",
+      "source": "mock",
+      "name": "Shell Yonge St",
+      "brand": "Shell",
+      "lat": 43.6532,
+      "lng": -79.3832,
+      "address": "123 Yonge St, Toronto, ON",
+      "prices": {
+        "regular": 1.52,
+        "mid": 1.65,
+        "premium": 1.78,
+        "diesel": 1.45
+      },
+      "rating": 4.5
+    },
+    {
+      "externalId": "mock_ca_002",
+      "source": "mock",
+      "name": "Petro-Canada Bay St",
+      "brand": "Petro-Canada",
+      "lat": 43.6629,
+      "lng": -79.3957,
+      "address": "456 Bay St, Toronto, ON",
+      "prices": {
+        "regular": 1.58,
+        "mid": 1.72,
+        "premium": 1.85,
+        "diesel": 1.50
+      },
+      "rating": 4.2
+    },
+    {
+      "externalId": "mock_ca_003",
+      "source": "mock",
+      "name": "Esso Dundas W",
+      "brand": "Esso",
+      "lat": 43.6452,
+      "lng": -79.4225,
+      "address": "789 Dundas St W, Toronto, ON",
+      "prices": {
+        "regular": 1.65,
+        "mid": 1.78,
+        "premium": 1.92,
+        "diesel": 1.55
+      },
+      "rating": 4.0
+    },
+    {
+      "externalId": "mock_ca_004",
+      "source": "mock",
+      "name": "Canadian Tire Gas",
+      "brand": "Canadian Tire",
+      "lat": 43.6765,
+      "lng": -79.4106,
+      "address": "321 Eglinton Ave W, Toronto, ON",
+      "prices": {
+        "regular": 1.49,
+        "mid": 1.62,
+        "premium": 1.75,
+        "diesel": 1.42
+      },
+      "rating": 4.3
+    },
+    {
+      "externalId": "mock_us_001",
+      "source": "mock",
+      "name": "Shell I-95 Exit 12",
+      "brand": "Shell",
+      "lat": 40.7128,
+      "lng": -74.0060,
+      "address": "12 Exit 12, New York, NY",
+      "prices": {
+        "regular": 3.299,
+        "mid": 3.599,
+        "premium": 3.899,
+        "diesel": 3.899
+      },
+      "rating": 4.4
+    }
+  ]
+}
