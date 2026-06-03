@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import axios from 'axios';
 import { getAdapter, getAdapterByLocation } from '../services/adapterFactory';
 import { detectCountry, normalizeGrade, getGradeLabel } from '../services/countryDetect';
 import { getCache, setCache } from '../services/cache';
@@ -44,6 +45,7 @@ router.get('/compare', async (req: Request, res: Response) => {
     } else {
       // 调用适配器获取数据
       const adapter = getAdapter(country);
+      console.log(`[Prices] 适配器选择: country=${country}, 平台=${adapter.constructor.name}`);
       const normalizedGrade = normalizeGrade(grade, country);
       stations = await adapter.searchNearby(lat, lng, radius, normalizedGrade);
 
@@ -132,6 +134,45 @@ router.get('/compare', async (req: Request, res: Response) => {
         detail: error.message,
       });
     }
+  }
+});
+
+/**
+ * GET /api/prices/proxy
+ * 代理：前端调此接口，后端转发到 gas.dunbo.uk/prices，避免前端直连
+ * Query: address, radius (miles), fuel_type?
+ */
+router.get('/proxy', async (req: Request, res: Response) => {
+  try {
+    const { address, radius_km, fuel_type } = req.query;
+    if (!address) {
+      return res.status(400).json({ error: '缺少 address 参数' });
+    }
+
+    const { baseUrl, pricesPath, timeoutMs } = config.gasBuddyApi;
+    const proxyUrl = `${baseUrl}${pricesPath}`;
+    // radius 前端传的是公里值 → 用 radius_km 传给 FastAPI（radius 是英里，二者互斥）
+    const params: Record<string, any> = {
+      address,
+      radius_km: radius_km || config.gasBuddyApi.radius,
+    };
+    if (fuel_type) params.fuel_type = fuel_type;
+
+    console.log(`[Prices Proxy] ▶ 转发请求到 ${proxyUrl}`, params);
+
+    const response = await axios.get(proxyUrl, {
+      params,
+      timeout: timeoutMs,
+    });
+
+    console.log(`[Prices Proxy] ✓ 返回 ${response.data?.count || 0} 条`);
+    return res.json(response.data);
+  } catch (error: any) {
+    console.error('[Prices Proxy] ✗ 转发失败:', error.message);
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(502).json({ error: '代理请求失败', detail: error.message });
   }
 });
 

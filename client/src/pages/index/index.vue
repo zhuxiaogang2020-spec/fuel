@@ -21,7 +21,7 @@
         :longitude="location.lng"
         :scale="14"
         :markers="markers"
-        :show-location="true"
+        :show-location="false"
         :enable-scroll="true"
         @error="onMapError"
         @updated="onMapUpdated"
@@ -34,8 +34,8 @@
 
     <!-- 底部抽屉 -->
     <BottomDrawer
-      :is-open="drawerOpen"
       @toggle="toggleDrawer"
+      @state-change="onDrawerStateChange"
     >
       <!-- 排序切换 -->
       <view class="sort-bar">
@@ -63,8 +63,8 @@
         </view>
       </view>
 
-      <!-- 半径切换（非中国） -->
-      <view v-if="!isCN" class="radius-bar">
+      <!-- 半径切换 -->
+      <view class="radius-bar">
         <view
           v-for="r in radiusOptions"
           :key="r.value"
@@ -77,12 +77,13 @@
       </view>
 
       <!-- 加油站列表 -->
-      <scroll-view class="station-list" scroll-y>
+      <view class="station-list">
         <StationCard
           v-for="s in sortedStations"
           :key="s.externalId"
           :station="s"
           :is-cheapest="s.isCheapest"
+          :selected-grade="selectedGrade"
           :country="country"
           :currency-symbol="currencySymbol"
           @tap="onStationTap(s)"
@@ -90,7 +91,7 @@
         <view v-if="sortedStations.length === 0" class="empty-tip">
           <text>📭 附近暂无加油站数据</text>
         </view>
-      </scroll-view>
+      </view>
     </BottomDrawer>
 
     <!-- 加载提示 -->
@@ -123,7 +124,7 @@ const location = locationStore;
 let isDevtools = false;
 try {
   // #ifdef MP-WEIXIN
-  const sysInfo = uni.getSystemInfoSync();
+  const sysInfo = uni.getDeviceInfo();
   isDevtools = sysInfo.platform === 'devtools';
   console.log('[DevTools] platform:', sysInfo.platform, 'isDevtools:', isDevtools);
   // #endif
@@ -131,7 +132,6 @@ try {
 
 // 状态
 const loading = ref(false);
-const drawerOpen = ref(true);
 const stations = ref<any[]>([]);
 const markers = ref<any[]>([]);
 const countryInfo = ref<CountryInfo | null>(null);
@@ -139,7 +139,7 @@ const countryInfo = ref<CountryInfo | null>(null);
 // 筛选状态
 const sortBy = ref<'distance' | 'price'>('distance');
 const selectedGrade = ref('regular');
-const selectedRadius = ref(25000);
+const selectedRadius = ref(5000); // 默认 5km
 
 // 用户 Store 计算属性
 const isCN = computed(() => userStore.country === 'CN');
@@ -216,20 +216,42 @@ async function initLocation() {
     const lng = res.longitude;
     console.log('[Location] 定位结果:', lat, lng);
     // 检测是否为开发者工具默认模拟定位（北京天安门附近）
-    // 如果是则降级到测试坐标，避免搜不到数据
+    // 如果是则降级到中国测试坐标（重庆），避免搜不到数据
     const isDevDefaultMock = Math.abs(lat - 39.9) < 0.5 && Math.abs(lng - 116.4) < 0.5;
     if (isDevDefaultMock) {
-      console.warn('[Location] 检测到开发者工具默认定位，切换到测试坐标（Toronto）');
-      locationStore.setLocation(43.6532, -79.3832, 'Toronto, ON');
+      console.warn('[Location] 检测到开发者工具默认定位，切换到测试坐标（重庆）');
+      locationStore.setLocation(29.5647, 106.5507, '重庆市');
+      // 根据坐标设置国家为中国
+      userStore.setCountryInfo({
+        country: 'CN',
+        unitSystem: 'metric',
+        currencySymbol: '¥',
+        priceUnit: '¥/L',
+        distanceUnit: 'km',
+        efficiencyUnit: 'L/100km',
+      });
       return;
     }
     locationStore.setLocation(lat, lng, '');
     updateLocationAddress(lat, lng);
+    // 根据坐标检测国家，更新 store
+    const detected = detectCountryFromCoords(lat, lng);
+    if (detected && userStore.country !== detected) {
+      setCountryDefaults(detected);
+    }
     console.log('[Map] 地图中心坐标已设置: lat=' + locationStore.lat + ', lng=' + locationStore.lng);
   } catch (error) {
     console.error('获取位置失败:', error);
-    // 使用 Mock 位置
-    locationStore.setLocation(43.6532, -79.3832, 'Toronto, ON');
+    // 使用 Mock 位置（重庆）
+    locationStore.setLocation(29.5647, 106.5507, '重庆市');
+    userStore.setCountryInfo({
+      country: 'CN',
+      unitSystem: 'metric',
+      currencySymbol: '¥',
+      priceUnit: '¥/L',
+      distanceUnit: 'km',
+      efficiencyUnit: 'L/100km',
+    });
   }
 }
 
@@ -254,38 +276,95 @@ function updateLocationAddress(lat: number, lng: number) {
   locationStore.address = `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
 }
 
+/** 根据坐标检测国家（客户端简化版） */
+function detectCountryFromCoords(lat: number, lng: number): string {
+  if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) return 'CN';
+  if (lat >= 42 && lat <= 83 && lng >= -141 && lng <= -52) return 'CA';
+  if (lat >= 18 && lat <= 72 && lng >= -180 && lng <= -52) return 'US';
+  return 'OTHER';
+}
+
+/** 根据国家代码设置默认显示单位 */
+function setCountryDefaults(country: string) {
+  const map: Record<string, any> = {
+    CN: { country: 'CN', unitSystem: 'metric', currencySymbol: '¥', priceUnit: '¥/L', distanceUnit: 'km', efficiencyUnit: 'L/100km' },
+    CA: { country: 'CA', unitSystem: 'metric', currencySymbol: 'C$', priceUnit: 'C$/L', distanceUnit: 'km', efficiencyUnit: 'L/100km' },
+    US: { country: 'US', unitSystem: 'imperial', currencySymbol: '$', priceUnit: '$/gal', distanceUnit: 'miles', efficiencyUnit: 'MPG' },
+  };
+  const info = map[country];
+  if (info) userStore.setCountryInfo(info);
+}
+
 // 获取加油站数据
 async function fetchStations() {
   loading.value = true;
   try {
-    // 直连 GasBuddy FastAPI（传入选中半径，单位 km）
-    const radiusKm = selectedRadius.value / 1000;
-    let result: any = await fetchGasPrices(locationStore.lat, locationStore.lng, radiusKm);
-    console.log(`[Index] GasBuddy 直连结果 (radius=${radiusKm}km):`, JSON.stringify(result));
+    const radiusM = selectedRadius.value;
+    const lat = locationStore.lat;
+    const lng = locationStore.lng;
 
-    console.log('[Index] 加油站响应:', JSON.stringify(result));
-    console.log('[Index] stations数量:', (result.stations || []).length);
-    stations.value = result.stations || [];
-    countryInfo.value = result.country;
-
-    // 更新用户 Store 中的国家信息
-    if (result.country) {
-      userStore.setCountryInfo({
-        country: result.country.country,
-        unitSystem: result.country.unitSystem,
-        currencySymbol: result.country.currencySymbol,
-        priceUnit: result.country.priceUnit,
-        distanceUnit: result.country.distanceUnit,
-        efficiencyUnit: result.country.efficiencyUnit,
+    if (isCN.value) {
+      // 中国用户 → 调用后端 compare 接口（走腾讯地图适配器）
+      console.log(`[Index] 中国用户，调用 /prices/compare: lat=${lat}, lng=${lng}, radius=${radiusM}m`);
+      const result: any = await get('/prices/compare', {
+        lat,
+        lng,
+        radius: radiusM,
+        grade: selectedGrade.value,
+        sort: sortBy.value,
       });
-    }
+      console.log('[Index] compare 响应:', JSON.stringify(result));
 
-    // 更新地图标记
-    updateMarkers();
-    
-    if (stations.value.length === 0) {
-      console.warn('[Index] 加油站列表为空');
-      uni.showToast({ title: '附近暂无加油站', icon: 'none' });
+      stations.value = result.stations || [];
+      countryInfo.value = result.country;
+
+      if (result.country) {
+        userStore.setCountryInfo({
+          country: result.country.country,
+          unitSystem: result.country.unitSystem,
+          currencySymbol: result.country.currencySymbol,
+          priceUnit: result.country.priceUnit,
+          distanceUnit: result.country.distanceUnit,
+          efficiencyUnit: result.country.efficiencyUnit,
+        });
+      }
+
+      updateMarkers();
+
+      if (stations.value.length === 0) {
+        console.warn('[Index] 加油站列表为空');
+        uni.showToast({ title: '附近暂无加油站', icon: 'none' });
+      }
+    } else {
+      // 非中国用户 → 直连 GasBuddy（传入选中半径，单位 km）
+      const radiusKm = radiusM / 1000;
+      let result: any = await fetchGasPrices(lat, lng, radiusKm);
+      console.log(`[Index] GasBuddy 直连结果 (radius=${radiusKm}km):`, JSON.stringify(result));
+
+      console.log('[Index] 加油站响应:', JSON.stringify(result));
+      console.log('[Index] stations数量:', (result.stations || []).length);
+      stations.value = result.stations || [];
+      countryInfo.value = result.country;
+
+      // 更新用户 Store 中的国家信息
+      if (result.country) {
+        userStore.setCountryInfo({
+          country: result.country.country,
+          unitSystem: result.country.unitSystem,
+          currencySymbol: result.country.currencySymbol,
+          priceUnit: result.country.priceUnit,
+          distanceUnit: result.country.distanceUnit,
+          efficiencyUnit: result.country.efficiencyUnit,
+        });
+      }
+
+      // 更新地图标记
+      updateMarkers();
+
+      if (stations.value.length === 0) {
+        console.warn('[Index] 加油站列表为空');
+        uni.showToast({ title: '附近暂无加油站', icon: 'none' });
+      }
     }
   } catch (error: any) {
     // request.js 已统一显示 toast，这里只记录日志，避免重复提示
@@ -319,7 +398,12 @@ function updateMarkers() {
 
 // 切换抽屉
 function toggleDrawer() {
-  drawerOpen.value = !drawerOpen.value;
+  // 由 BottomDrawer 内部处理
+}
+
+// 抽屉状态变化
+function onDrawerStateChange(state: 'collapsed' | 'half' | 'full') {
+  console.log('[Drawer] state:', state);
 }
 
 // 排序切换
@@ -457,8 +541,6 @@ function onMapUpdated(e: any) {
 }
 
 .station-list {
-  flex: 1;
-  max-height: 60vh;
   padding: 0 24rpx;
 }
 

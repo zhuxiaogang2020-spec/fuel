@@ -242,7 +242,7 @@ async function fetchStationPrices() {
   }
   // 优先从全局缓存读取（station-detail 跳转时注入）
   const app = getApp();
-  if (app.globalData?.__selectedStation?.externalId === stationId.value) {
+  if (String(app.globalData?.__selectedStation?.externalId) === String(stationId.value)) {
     const prices = app.globalData.__selectedStation.prices;
     stationPrices.value = prices || {};
     console.log('[Refuel] 从全局缓存获取油价:', JSON.stringify(stationPrices.value));
@@ -353,8 +353,15 @@ async function onSave() {
 
   saving.value = true;
   try {
+    // 从全局缓存补充站名等信息（外部站首次保存时用于自动创建）
+    const cs = getApp().globalData?.__selectedStation;
     const result = await post<any>('/records', {
       stationId: stationId.value,
+      stationName: stationName.value || cs?.name || '',
+      stationBrand: cs?.brand || '',
+      stationAddress: cs?.address || '',
+      stationLat: cs?.lat,
+      stationLng: cs?.lng,
       grade: selectedGrade.value,
       amount: parseFloat(amount.value),
       volume: volume.value ? parseFloat(volume.value) : null,

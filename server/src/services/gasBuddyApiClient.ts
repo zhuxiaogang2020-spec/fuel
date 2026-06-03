@@ -159,10 +159,12 @@ export async function fetchPricesFromApi(
     params.fuel_type = FUEL_TYPE_MAP[fuel];
   }
 
+  const requestUrl = `${baseUrl}${pricesPath}`;
   console.log(`[GasBuddyAPI] ▶ 请求 ${citySearch} radius=${radius}`);
+  console.log(`[GasBuddyAPI]    URL: ${requestUrl}`);
 
   try {
-    const response = await axios.get<GasBuddyApiResponse>(`${baseUrl}${pricesPath}`, {
+    const response = await axios.get<GasBuddyApiResponse>(requestUrl, {
       params,
       timeout: timeoutMs,
     });

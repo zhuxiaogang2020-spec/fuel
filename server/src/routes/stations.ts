@@ -191,8 +191,8 @@ router.get('/:id', async (req: Request, res: Response) => {
                 CAST(price_mid AS DOUBLE) as price_mid,
                 CAST(price_premium AS DOUBLE) as price_premium,
                 CAST(price_diesel AS DOUBLE) as price_diesel
-         FROM stations WHERE external_id = ? LIMIT 1`,
-        [externalId]
+         FROM stations WHERE external_id = ? OR external_id = CONCAT('gasbuddy_', ?) LIMIT 1`,
+        [externalId, externalId]
       ) as [any[], any];
 
       if (rows.length > 0) {

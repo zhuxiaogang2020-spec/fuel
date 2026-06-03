@@ -1,30 +1,20 @@
 <template>
   <view class="drawer-container" :class="{ open: isOpen }">
-    <!-- 遮罩 -->
-    <view
-      v-if="isOpen"
-      class="drawer-mask"
-      @tap="onMaskTap"
-    />
-
     <!-- 抽屉主体 -->
-    <view class="drawer-body" :style="{ height: drawerHeight + 'px' }">
+    <view
+      class="drawer-body"
+      :style="{ height: drawerHeight + 'px', transition: isDragging ? 'none' : 'height 0.3s ease' }"
+    >
       <!-- 拖拽手柄 -->
       <view class="drag-handle" @touchstart="onDragStart" @touchmove="onDragMove" @touchend="onDragEnd">
         <view class="handle-bar" />
       </view>
 
-      <!-- 折叠时显示摘要 -->
-      <view v-if="!isFullyOpen" class="drawer-summary">
-        <text class="summary-text">{{ summaryText }}</text>
-        <text class="expand-hint">上拉展开 ▴</text>
-      </view>
-
       <!-- 抽屉内容 -->
       <scroll-view
-        v-show="isFullyOpen"
         class="drawer-content"
         scroll-y
+        :style="{ height: (drawerHeight - dragHandleHeight) + 'px' }"
       >
         <slot />
       </scroll-view>
@@ -35,15 +25,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 
-// 微信小程序中 window.innerHeight 不存在，用 uni.getSystemInfoSync
 const winHeight = ref(0);
-try { winHeight.value = uni.getSystemInfoSync().windowHeight; } catch (e) { winHeight.value = 667; }
+try { winHeight.value = uni.getWindowInfo().windowHeight; } catch (e) { winHeight.value = 667; }
 
 const props = defineProps<{
   isOpen?: boolean;
   stationCount?: number;
-  minHeight?: number;  // 折叠高度（px）
-  maxHeight?: number;  // 展开高度比例（0-1）
 }>();
 
 const emit = defineEmits<{
@@ -51,19 +38,59 @@ const emit = defineEmits<{
   stateChange: [state: 'collapsed' | 'half' | 'full'];
 }>();
 
-const isOpen = ref(props.isOpen || false);
-const drawerHeight = ref(props.minHeight || 200);
-const isFullyOpen = ref(true);
+// 三档高度：最小、半屏、全屏
+const SNAP_COLLAPSED = 0.3;   // 30% 屏幕高度
+const SNAP_HALF = 0.55;       // 55% 屏幕高度
+const SNAP_FULL = 0.92;       // 92% 屏幕高度（留顶部状态栏）
+
+const snapPoints = computed(() => ({
+  collapsed: winHeight.value * SNAP_COLLAPSED,
+  half: winHeight.value * SNAP_HALF,
+  full: winHeight.value * SNAP_FULL,
+}));
+
+const dragHandleHeight = 44; // rpx drag handle area height in px
+
+const isOpen = ref(props.isOpen ?? true);
+const drawerHeight = ref(winHeight.value * SNAP_HALF);
+const isDragging = ref(false);
 const dragStartY = ref(0);
 const startHeight = ref(0);
+const currentState = ref<'collapsed' | 'half' | 'full'>('half');
 
-const summaryText = computed(() => {
-  const count = props.stationCount || 0;
-  return `附近找到 ${count} 个加油站`;
-});
+// 找到最近的吸附点
+function findNearestSnap(h: number): 'collapsed' | 'half' | 'full' {
+  const snaps = snapPoints.value;
+  const distances = [
+    { key: 'collapsed' as const, d: Math.abs(h - snaps.collapsed) },
+    { key: 'half' as const, d: Math.abs(h - snaps.half) },
+    { key: 'full' as const, d: Math.abs(h - snaps.full) },
+  ];
+  distances.sort((a, b) => a.d - b.d);
+  return distances[0].key;
+}
 
-function onMaskTap() {
-  close();
+function onDragStart(e: TouchEvent) {
+  isDragging.value = true;
+  dragStartY.value = e.touches[0].clientY;
+  startHeight.value = drawerHeight.value;
+}
+
+function onDragMove(e: TouchEvent) {
+  const delta = dragStartY.value - e.touches[0].clientY;
+  const newHeight = Math.max(
+    snapPoints.value.collapsed,
+    Math.min(startHeight.value + delta, snapPoints.value.full)
+  );
+  drawerHeight.value = newHeight;
+}
+
+function onDragEnd() {
+  isDragging.value = false;
+  const snapped = findNearestSnap(drawerHeight.value);
+  currentState.value = snapped;
+  drawerHeight.value = snapPoints.value[snapped];
+  emit('stateChange', snapped);
 }
 
 function toggle() {
@@ -73,50 +100,22 @@ function toggle() {
 
 function open() {
   isOpen.value = true;
-  drawerHeight.value = winHeight.value * 0.5;
-  isFullyOpen.value = true;
-  emit('stateChange', 'full');
+  currentState.value = 'half';
+  drawerHeight.value = snapPoints.value.half;
+  emit('stateChange', 'half');
 }
 
 function close() {
   isOpen.value = false;
-  isFullyOpen.value = false;
-  drawerHeight.value = props.minHeight || 200;
+  currentState.value = 'collapsed';
+  drawerHeight.value = snapPoints.value.collapsed;
   emit('stateChange', 'collapsed');
 }
 
-function onDragStart(e: TouchEvent) {
-  dragStartY.value = e.touches[0].clientY;
-  startHeight.value = drawerHeight.value;
-}
-
-function onDragMove(e: TouchEvent) {
-  const delta = dragStartY.value - e.touches[0].clientY;
-  const newHeight = Math.max(
-    props.minHeight || 200,
-    Math.min(startHeight.value + delta, winHeight.value * (props.maxHeight || 0.8))
-  );
-  drawerHeight.value = newHeight;
-}
-
-function onDragEnd() {
-  const threshold = (props.minHeight || 200) * 1.5;
-  if (drawerHeight.value > threshold) {
-    isFullyOpen.value = true;
-    drawerHeight.value = winHeight.value * 0.6;
-    emit('stateChange', 'full');
-  } else {
-    isFullyOpen.value = false;
-    drawerHeight.value = props.minHeight || 200;
-    emit('stateChange', 'half');
-  }
-}
-
-// 暴露方法给父组件
 defineExpose({ toggle, open, close });
 
 onMounted(() => {
-  drawerHeight.value = winHeight.value * 0.5;
+  drawerHeight.value = snapPoints.value.half;
 });
 </script>
 
@@ -131,16 +130,6 @@ onMounted(() => {
   pointer-events: none;
 }
 
-.drawer-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  pointer-events: auto;
-}
-
 .drawer-body {
   position: absolute;
   left: 0;
@@ -151,7 +140,6 @@ onMounted(() => {
   border-radius: 32rpx 32rpx 0 0;
   box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.1);
   pointer-events: auto;
-  transition: height 0.3s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -162,6 +150,7 @@ onMounted(() => {
   justify-content: center;
   padding: 16rpx 0 8rpx;
   cursor: grab;
+  flex-shrink: 0;
 }
 
 .handle-bar {
@@ -169,24 +158,6 @@ onMounted(() => {
   height: 8rpx;
   background: #D1D5DB;
   border-radius: 4rpx;
-}
-
-.drawer-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 32rpx 16rpx;
-}
-
-.summary-text {
-  font-size: 24rpx;
-  color: #6B7280;
-  font-weight: 500;
-}
-
-.expand-hint {
-  font-size: 20rpx;
-  color: #9CA3AF;
 }
 
 .drawer-content {

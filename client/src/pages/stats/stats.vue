@@ -1,5 +1,20 @@
 <template>
   <view class="page-container">
+    <!-- 车辆选择器 -->
+    <view v-if="vehicles.length > 1" class="vehicle-selector card">
+      <scroll-view scroll-x class="vehicle-scroll">
+        <view
+          v-for="v in vehicles"
+          :key="v.id"
+          class="vehicle-chip"
+          :class="{ active: selectedVehicleId === v.id }"
+          @tap="onVehicleChange(v.id)"
+        >
+          {{ v.name }}
+        </view>
+      </scroll-view>
+    </view>
+
     <!-- 本次油耗核心数据 -->
     <view class="efficiency-hero card" :style="{ background: heroBg }">
       <text class="hero-label">⛽ 本次油耗</text>
@@ -49,19 +64,22 @@
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import FuelChart from '@/components/FuelChart.vue';
-import { get, post } from '@/utils/request';
+import { get } from '@/utils/request';
 import { useUserStore } from '@/store/index';
 import { getEfficiencyColor } from '@/utils/unit';
 
 const userStore = useUserStore();
 
 const history = ref<any[]>([]);
+const vehicles = ref<any[]>([]);
+const selectedVehicleId = ref<number | null>(null);
 const efficiencyUnit = computed(() => userStore.efficiencyUnit || 'L/100km');
 
 // 本次油耗显示
 const efficiencyDisplay = computed(() => {
   if (history.value.length === 0) return '--';
   const latest = history.value[0];
+  if (latest.value == null || latest.value <= 0) return '--';
   return formatValue(latest.value);
 });
 
@@ -104,13 +122,37 @@ function getColor(val: number): string {
   return getEfficiencyColor(val, efficiencyUnit.value);
 }
 
+// 切换车辆
+function onVehicleChange(vehicleId: number) {
+  selectedVehicleId.value = vehicleId;
+  history.value = []; // 切换车辆时先清空旧数据，防止闪烁
+  fetchStats();
+}
+
 onShow(async () => {
+  await fetchVehicles();
+  // 默认选中第一辆车
+  if (vehicles.value.length > 0 && selectedVehicleId.value === null) {
+    selectedVehicleId.value = vehicles.value[0].id;
+  }
   await fetchStats();
 });
 
-async function fetchStats() {
+async function fetchVehicles() {
   try {
-    const result = await get<any>('/records/stats');
+    const result = await get<any>('/vehicles');
+    if (result.success && result.vehicles) {
+      vehicles.value = result.vehicles;
+    }
+  } catch (error: any) {
+    console.error('获取车辆列表失败:', error.message);
+  }
+}
+
+async function fetchStats() {
+  if (selectedVehicleId.value === null) return;
+  try {
+    const result = await get<any>('/records/stats', { vehicleId: selectedVehicleId.value });
     if (result.success && result.history) {
       history.value = result.history.map((h: any) => ({
         ...h,
@@ -119,12 +161,6 @@ async function fetchStats() {
     }
   } catch (error: any) {
     console.error('获取统计失败:', error.message);
-    // Mock 数据
-    history.value = [
-      { value: 8.2, unit: 'L/100km', date: '2026-05-20', stationName: '中石化人民路站', amount: 350 },
-      { value: 7.9, unit: 'L/100km', date: '2026-05-10', stationName: '壳牌解放路站', amount: 320 },
-      { value: 8.5, unit: 'L/100km', date: '2026-04-28', stationName: '中石化人民路站', amount: 360 },
-    ];
   }
 }
 </script>
@@ -134,6 +170,33 @@ async function fetchStats() {
   padding: 24rpx;
   background: var(--color-bg);
   min-height: 100vh;
+}
+
+/* 车辆选择器 */
+.vehicle-selector {
+  padding: 16rpx 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.vehicle-scroll {
+  white-space: nowrap;
+}
+
+.vehicle-chip {
+  display: inline-block;
+  padding: 12rpx 28rpx;
+  border-radius: 32rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  background: var(--color-bg-secondary, #F0F4F8);
+  color: var(--color-text-secondary, #6B7280);
+  margin-right: 16rpx;
+  transition: all 0.2s ease;
+
+  &.active {
+    background: var(--color-primary, #FF6B35);
+    color: #fff;
+  }
 }
 
 .efficiency-hero {

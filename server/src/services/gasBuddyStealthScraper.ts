@@ -585,13 +585,13 @@ class GasBuddyStealthScraper {
       let stations: StationRaw[] = [];
 
       const timeoutMs = 20000;
-      const timeout = new Promise<void>((_, reject) =>
+      const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('数据加载超时')), timeoutMs)
       );
 
       try {
         // 优先等 GraphQL 拦截
-        stations = await Promise.race([gqlPromise, timeout]);
+        stations = await Promise.race<StationRaw[]>([gqlPromise, timeout]);
       } catch {
         // GraphQL 拦截超时或失败 → fallback 到 DOM 提取
         console.log(`[Stealth] GraphQL 拦截失败，尝试 DOM 提取...`);

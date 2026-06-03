@@ -64,6 +64,15 @@ export function logout(): void {
 }
 
 /**
+ * 强制重新登录（清除缓存后重新获取 code）
+ */
+export async function forceReLogin(): Promise<{ openid: string; userId: number }> {
+  uni.removeStorageSync(STORAGE_KEY_OPENID);
+  uni.removeStorageSync(STORAGE_KEY_USER);
+  return wechatLogin();
+}
+
+/**
  * 检查是否已登录
  */
 export function isLoggedIn(): boolean {

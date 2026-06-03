@@ -28,7 +28,7 @@ export async function calculateFuelEfficiency(
   try {
     // 获取当前记录
     const current = await queryOne<any>(
-      `SELECT volume, odometer, is_full_tank, created_at 
+      `SELECT volume, odometer, is_full_tank, vehicle_id, created_at 
        FROM refuel_records 
        WHERE id = ? AND user_id = ?`,
       [currentRecordId, userId]
@@ -38,15 +38,18 @@ export async function calculateFuelEfficiency(
       return null;
     }
 
-    // 查找上一条「加满」记录
+    // 查找同一辆车的上一条「加满」记录
+    const vehicleFilter = current.vehicle_id ? ' AND vehicle_id = ?' : ' AND vehicle_id IS NULL';
+    const vehicleParams = current.vehicle_id ? [userId, current.odometer, currentRecordId, current.vehicle_id] : [userId, current.odometer, currentRecordId];
     const previous = await queryOne<any>(
       `SELECT volume, odometer, is_full_tank, created_at 
        FROM refuel_records 
        WHERE user_id = ? AND is_full_tank = TRUE 
          AND odometer < ? AND id != ?
+         ${vehicleFilter}
        ORDER BY odometer DESC, created_at DESC 
        LIMIT 1`,
-      [userId, current.odometer, currentRecordId]
+      vehicleParams
     );
 
     if (!previous || !previous.odometer) {
@@ -105,22 +108,30 @@ export interface FuelEfficiencyHistoryItem extends FuelEfficiencyResult {
 export async function getFuelEfficiencyHistory(
   userId: number,
   country: string,
-  limit: number = 6
+  limit: number = 6,
+  vehicleId?: number | null
 ): Promise<FuelEfficiencyHistoryItem[]> {
   try {
     const fetchLimit = limit + 1; // 多取一条用于计算
+    const vehicleFilter = vehicleId ? ' AND r.vehicle_id = ?' : '';
     const records = await query<any>(
       `SELECT r.id, r.volume, r.odometer, r.is_full_tank, r.created_at, r.amount,
               s.name as station_name
        FROM refuel_records r
        LEFT JOIN stations s ON r.station_id = s.id
        WHERE r.user_id = ? AND r.is_full_tank = TRUE AND r.volume IS NOT NULL AND r.odometer IS NOT NULL
+             ${vehicleFilter}
        ORDER BY r.odometer DESC, r.created_at DESC
        LIMIT ${fetchLimit}`,
-      [userId]
+      vehicleId ? [userId, vehicleId] : [userId]
     );
 
     const results: FuelEfficiencyHistoryItem[] = [];
+
+    // 少于2条加满记录无法形成有效配对，直接返回空
+    if (records.length < 2) {
+      return [];
+    }
 
     for (let i = 0; i < records.length - 1; i++) {
       const current = records[i];

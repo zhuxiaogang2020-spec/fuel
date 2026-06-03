@@ -24,7 +24,8 @@ router.post('/login', async (req: Request, res: Response) => {
     // 开发/Mock 模式：直接用 code 作为 openid（绕过微信 API）
     if (config.mock.enabled || config.wechat.secret === 'placeholder_secret' || process.env.NODE_ENV === 'development') {
       console.log('[Auth] Mock 模式登录, code:', code.substring(0, 20) + '...');
-      openid = 'dev_' + code.replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+      // 开发模式下使用固定 openid，避免每次重新代码生成新用户导致旧数据丢失
+      openid = process.env.DEV_OPENID || 'dev_default_user';
       session_key = 'mock_session_key';
     } else {
       // 调用微信 code2Session 接口

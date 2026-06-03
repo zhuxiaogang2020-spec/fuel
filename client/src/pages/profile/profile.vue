@@ -181,6 +181,10 @@ const unitLabel = computed(() => {
 uniOnShow(async () => {
   await fetchStats();
   await vehicleStore.fetchVehicles();
+  // 如果有车辆但未选中，自动弹出面板提示选择
+  if (vehicleStore.vehicles.length > 0 && !vehicleStore.selectedVehicleId) {
+    showVehicle.value = true;
+  }
 });
 
 async function fetchStats() {
@@ -216,6 +220,8 @@ function closeVehiclePanel() {
 function selectVehicle(id: number) {
   vehicleStore.selectVehicle(id);
   uni.showToast({ title: '已设为当前车辆', icon: 'success' });
+  // 选完后自动关闭面板
+  closeVehiclePanel();
 }
 
 function editVehicle(v: Vehicle) {

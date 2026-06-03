@@ -39,6 +39,7 @@ import type { Station } from '@/types/station';
 const props = defineProps<{
   station: any;
   isCheapest?: boolean;
+  selectedGrade?: string;
   country?: string;
   currencySymbol?: string;
 }>();
@@ -65,8 +66,10 @@ const priceDisplay = computed(() => {
   const prices = props.station?.prices;
   if (!prices) return null;
 
-  const grade = props.station?.localGradeLabel || 'regular';
-  const price = prices.regular; // 默认显示 regular 价格
+  // 根据当前选中的油号显示对应价格
+  const gradeKey = props.selectedGrade || 'regular';
+  const price = prices[gradeKey];
+  const gradeLabel = props.station?.localGradeLabel || gradeKey;
 
   if (price == null) return null;
 

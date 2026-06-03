@@ -1,13 +1,15 @@
 /**
- * GasBuddy 客户端工具 — 直连 FastAPI，不经过 Express 中转
+ * GasBuddy 客户端工具 — 通过 Express 后端代理获取油价
+ * 前端不再直连 FastAPI，由后端转发请求到 gas.dunbo.uk
  *
  * 用法:
  *   import { fetchGasPrices } from '@/utils/gasbuddy';
  *   const result = await fetchGasPrices(lat, lng);
  */
 
-const API_URL = import.meta.env.VITE_GASBUDDY_API_URL || 'http://localhost:8000';
-const SEARCH_RADIUS = Number(import.meta.env.VITE_GASBUDDY_SEARCH_RADIUS) || 15;
+import { BASE_URL } from './request';
+
+const SEARCH_RADIUS_KM = Number(import.meta.env.VITE_GASBUDDY_SEARCH_RADIUS_KM) || 25;
 
 // ========================================================================
 // 加拿大城市坐标映射
@@ -66,7 +68,8 @@ interface FastApiPriceItem {
   lat: number;
   long: number;
   brand: string;
-  distance: number;
+  distance: number;     // 英里（从搜索地址到站点）
+  distance_km: number;  // 公里（从搜索地址到站点）
   fuel_type: string;
   cost: number;
   source: string;
@@ -168,11 +171,11 @@ export async function fetchGasPrices(lat: number, lng: number, radiusKm?: number
     };
   }
 
-  // 半径：优先使用传入的 km 值，转换为英里（FastAPI 期望英里）
-  const radiusMiles = radiusKm != null ? Math.round((radiusKm / 1.60934) * 10) / 10 : SEARCH_RADIUS;
-  const url = `${API_URL}/prices?address=${encodeURIComponent(city.search)}&radius=${radiusMiles}`;
+  // 半径：公里值 → 传给后端代理（后端转发为 radius_km 给 FastAPI）
+  const radiusParam = radiusKm != null ? radiusKm : SEARCH_RADIUS_KM;
+  const url = `${BASE_URL}/prices/proxy?address=${encodeURIComponent(city.search)}&radius_km=${radiusParam}`;
 
-  console.log('[GasBuddy] ▶ 直连 FastAPI:', url);
+  console.log('[GasBuddy] ▶ 通过后端代理:', url);
 
   return new Promise((resolve) => {
     uni.request({
@@ -217,8 +220,8 @@ export async function fetchGasPrices(lat: number, lng: number, radiusKm?: number
           }
         }
 
-        // 计算用户到每个加油站的距离
-        const R = 6371000;
+        // 使用 FastAPI 返回的 distance_km（从搜索地址到站点的公里数）
+        // 不重新计算——用户坐标可能远离城市中心，重算值会严重偏大
         const stations: GasStation[] = [];
 
         for (const [siteId, items] of groupMap) {
@@ -231,18 +234,10 @@ export async function fetchGasPrices(lat: number, lng: number, radiusKm?: number
             if (key) prices[key] = item.cost / 100;
           }
 
-          // 距离（相对于用户位置）
-          const dLat = ((first.lat - lat) * Math.PI) / 180;
-          const dLng = ((first.long - lng) * Math.PI) / 180;
-          const a =
-            Math.sin(dLat / 2) ** 2 +
-            Math.cos((lat * Math.PI) / 180) *
-              Math.cos((first.lat * Math.PI) / 180) *
-              Math.sin(dLng / 2) ** 2;
-          const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distanceMeters = (first.distance_km || 0) * 1000;
 
           stations.push({
-            externalId: siteId,
+            externalId: String(siteId),
             source: 'gasbuddy',
             name: cleanStationName(first.name),
             brand: first.brand || '',
@@ -250,7 +245,7 @@ export async function fetchGasPrices(lat: number, lng: number, radiusKm?: number
             lng: first.long,
             address: first.address && first.address !== 'See properties' ? first.address : city.search,
             prices,
-            distance: Math.round(distance),
+            distance: Math.round(distanceMeters),
             localGradeLabel: 'Regular(87)',
             country: 'CA',
           });

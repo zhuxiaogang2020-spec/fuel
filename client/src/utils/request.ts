@@ -1,6 +1,6 @@
-import { getOpenId } from './auth';
+const STORAGE_KEY_OPENID = 'fuel2_openid';
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.8.170:3000/api';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -32,7 +32,7 @@ export async function request<T = any>(
 
   try {
     // 获取 openid
-    const openid = getOpenId();
+    const openid = uni.getStorageSync(STORAGE_KEY_OPENID) || null;
 
     const res = await uni.request({
       url: `${BASE_URL}${url}`,

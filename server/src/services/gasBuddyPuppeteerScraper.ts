@@ -9,6 +9,7 @@
 
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import type { Browser, Page } from 'puppeteer';
 
 // 注册 stealth 插件（一次性，全局生效）
 puppeteer.use(StealthPlugin());
@@ -49,9 +50,9 @@ export interface ScrapeResult {
 // Browser Manager（单例，复用 browser 实例避免反复启动）
 // ========================================================================
 
-let browserPromise: Promise<puppeteer.Browser> | null = null;
+let browserPromise: Promise<Browser> | null = null;
 
-function getBrowser(): Promise<puppeteer.Browser> {
+function getBrowser(): Promise<Browser> {
   if (browserPromise) return browserPromise;
 
   browserPromise = puppeteer.launch({
@@ -167,7 +168,7 @@ function enrichStations(stations: StationRaw[], citySearch: string): StationRaw[
  * 监听页面 GraphQL 响应，返回包含加油站数据的 Promise
  */
 function interceptGraphQLResponse(
-  page: puppeteer.Page,
+  page: Page,
   timeoutMs: number
 ): { promise: Promise<StationRaw[]>; cleanup: () => void } {
   let capturedStations: StationRaw[] = [];
@@ -229,7 +230,7 @@ function interceptGraphQLResponse(
 // DOM Extraction（Fallback: GraphQL 拦截失败时从渲染 DOM 提取）
 // ========================================================================
 
-async function extractFromDOM(page: puppeteer.Page): Promise<StationRaw[]> {
+async function extractFromDOM(page: Page): Promise<StationRaw[]> {
   return page.evaluate(() => {
     const stations: any[] = [];
 
@@ -254,7 +255,7 @@ async function extractFromDOM(page: puppeteer.Page): Promise<StationRaw[]> {
     const cards = document.querySelectorAll(
       '[class*="StationCard"], [class*="station-card"], [data-testid*="station"], .GenericStationModule'
     );
-    cards.forEach((card) => {
+    cards.forEach((card: Element) => {
       try {
         const idStr = card.getAttribute('data-station-id') || '';
         const id = parseInt(idStr) || 0;
@@ -291,7 +292,7 @@ async function extractFromDOM(page: puppeteer.Page): Promise<StationRaw[]> {
  * 检测页面是否被 Cloudflare Turnstile 拦截
  * 返回 true=需要等待验证通过
  */
-async function isCloudflareChallenge(page: puppeteer.Page): Promise<boolean> {
+async function isCloudflareChallenge(page: Page): Promise<boolean> {
   try {
     const title = await page.title();
     if (title.includes('Just a moment') || title.includes('Checking')) {
@@ -318,7 +319,7 @@ async function isCloudflareChallenge(page: puppeteer.Page): Promise<boolean> {
  * 等待 Cloudflare 验证通过（最多等 30 秒）
  * puppeteer-extra-plugin-stealth 通常能自动通过，这里做兜底等待
  */
-async function waitForCloudflare(page: puppeteer.Page, maxWaitMs: number = 30000): Promise<boolean> {
+async function waitForCloudflare(page: Page, maxWaitMs: number = 30000): Promise<boolean> {
   const start = Date.now();
   let wasBlocked = false;
 
@@ -352,7 +353,7 @@ export async function scrapeCity(
   fuel: number = 1
 ): Promise<ScrapeResult> {
   const gasBuddyURL = `https://www.gasbuddy.com/home?search=${encodeURIComponent(citySearch)}&fuel=${fuel}`;
-  let page: puppeteer.Page | null = null;
+  let page: Page | null = null;
 
   console.log(`[Puppeteer] ▶ ${citySearch} 开始抓取`);
 

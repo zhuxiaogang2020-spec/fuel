@@ -45,13 +45,25 @@ router.post('/', async (req: Request, res: Response) => {
       // 纯数字，可能是 stations.id 或 stations.external_id，先按 id 查
       const numId = Number(stationId);
       const station = await queryOne<{ id: number }>(
-        'SELECT id FROM stations WHERE id = ? OR external_id = ? LIMIT 1',
-        [numId, String(stationId)]
+        'SELECT id FROM stations WHERE id = ? OR external_id = ? OR external_id = CONCAT(\'gasbuddy_\', ?) LIMIT 1',
+        [numId, String(stationId), String(stationId)]
       );
       if (station) {
         realStationId = station.id;
       } else {
-        return res.status(400).json({ error: '加油站不存在' });
+        // 纯数字且 DB 不存在，同样自动创建（如 GasBuddy 原始站点）
+        const stName = req.body.stationName || String(stationId);
+        const stBrand = req.body.stationBrand || '';
+        const stAddress = req.body.stationAddress || '';
+        const stLat = parseFloat(req.body.stationLat) || 0;
+        const stLng = parseFloat(req.body.stationLng) || 0;
+        const insertResult = await execute(
+          `INSERT INTO stations (external_id, source, name, brand, address, lat, lng)
+           VALUES (?, 'gasbuddy', ?, ?, ?, ?, ?)`,
+          [String(stationId), stName, stBrand, stAddress, stLat, stLng]
+        );
+        realStationId = (insertResult as any).insertId;
+        console.log('[Records] 自动创建加油站记录(纯数字):', String(stationId), stName);
       }
     } else {
       // 非纯数字（如 "gasbuddy_4441"），按 external_id 查
@@ -62,8 +74,19 @@ router.post('/', async (req: Request, res: Response) => {
       if (station) {
         realStationId = station.id;
       } else {
-        // 如果按 external_id 找不到，尝试创建新站记录（外部站首次加油时）
-        return res.status(400).json({ error: '加油站不存在，请从加油站详情页进入' });
+        // 自动创建新站记录（GasBuddy 等外部站首次加油时）
+        const stName = req.body.stationName || String(stationId);
+        const stBrand = req.body.stationBrand || '';
+        const stAddress = req.body.stationAddress || '';
+        const stLat = parseFloat(req.body.stationLat) || 0;
+        const stLng = parseFloat(req.body.stationLng) || 0;
+        const insertResult = await execute(
+          `INSERT INTO stations (external_id, source, name, brand, address, lat, lng)
+           VALUES (?, 'gasbuddy', ?, ?, ?, ?, ?)`,
+          [String(stationId), stName, stBrand, stAddress, stLat, stLng]
+        );
+        realStationId = (insertResult as any).insertId;
+        console.log('[Records] 自动创建加油站记录:', String(stationId), stName);
       }
     }
 
@@ -165,25 +188,24 @@ router.get('/stats', async (req: Request, res: Response) => {
     const userId = req.userId!;
     const vehicleId = req.query.vehicleId ? parseInt(req.query.vehicleId as string) : null;
 
+    if (!vehicleId) {
+      return res.status(400).json({ error: '请选择车辆' });
+    }
+
     let statsSql = `SELECT 
         COUNT(*) as total_count,
         SUM(amount) as total_amount,
         SUM(volume) as total_volume,
         AVG(fuel_efficiency) as avg_efficiency
        FROM refuel_records
-       WHERE user_id = ?`;
-    const statsParams: any[] = [userId];
-
-    if (vehicleId) {
-      statsSql += ' AND vehicle_id = ?';
-      statsParams.push(vehicleId);
-    }
+       WHERE user_id = ? AND vehicle_id = ?`;
+    const statsParams: any[] = [userId, vehicleId];
 
     const stats = await queryOne<any>(statsSql, statsParams);
 
     // 获取油耗历史
     const user = await queryOne<any>('SELECT country FROM users WHERE id = ?', [userId]);
-    const history = await getFuelEfficiencyHistory(userId, user?.country || 'CN');
+    const history = await getFuelEfficiencyHistory(userId, user?.country || 'CN', 6, vehicleId);
 
     return res.json({
       success: true,

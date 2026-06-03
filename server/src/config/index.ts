@@ -72,8 +72,8 @@ export const config = {
     baseUrl: process.env.GASBUDDY_API_URL || 'http://localhost:8000',
     /** 价格查询路径 */
     pricesPath: process.env.GASBUDDY_PRICES_PATH || '/prices',
-    /** 搜索半径（英里），默认 15 */
-    radius: parseFloat(process.env.GASBUDDY_SEARCH_RADIUS || '15'),
+    /** 搜索半径（公里），默认 25 */
+    radius: parseFloat(process.env.GASBUDDY_SEARCH_RADIUS_KM || '25'),
     /** 请求超时（毫秒） */
     timeoutMs: parseInt(process.env.GASBUDDY_API_TIMEOUT_MS || '30000', 10),
     /** 是否启用（设为 false 可回退到本地爬虫） */
