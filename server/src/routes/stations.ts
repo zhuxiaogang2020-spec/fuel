@@ -226,7 +226,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const adapter = getAdapterByExternalId(externalId);
     const detail = await adapter.getStationDetail(externalId);
     if (!detail) {
-      return res.status(404).json({ error: '加油站不存在' });
+      return res.json({ success: false, station: null });
     }
     return res.json({ success: true, station: detail });
   } catch (error: any) {
