@@ -4,6 +4,7 @@ import { getAdapter, getAdapterByLocation } from '../services/adapterFactory';
 import { detectCountry, normalizeGrade, getGradeLabel } from '../services/countryDetect';
 import { getCache, setCache } from '../services/cache';
 import { encode } from '../services/geohash';
+import { execute } from '../db/connection';
 import config from '../config/index';
 
 const router = Router();
@@ -164,6 +165,41 @@ router.get('/proxy', async (req: Request, res: Response) => {
       params,
       timeout: timeoutMs,
     });
+
+    // 将返回的加油站保存到本地 DB，供详情页查询
+    const prices = response.data?.prices || [];
+    if (prices.length > 0) {
+      // 按 site_id 分组，合并各油品价格
+      const groups = new Map<string, any[]>();
+      for (const item of prices) {
+        if (!item.site_id) continue;
+        const arr = groups.get(item.site_id);
+        if (arr) arr.push(item); else groups.set(item.site_id, [item]);
+      }
+      for (const [siteId, items] of groups) {
+        const first = items[0];
+        let reg: number | null = null, mid: number | null = null, prem: number | null = null, dies: number | null = null;
+        for (const i of items) {
+          const val = i.cost != null ? i.cost / 100 : null;
+          if (i.fuel_type === 'regular_gas') reg = val;
+          else if (i.fuel_type === 'midgrade_gas') mid = val;
+          else if (i.fuel_type === 'premium_gas') prem = val;
+          else if (i.fuel_type === 'diesel') dies = val;
+        }
+        try {
+          await execute(
+            `INSERT INTO stations (external_id, source, name, brand, lat, lng, address, price_regular, price_mid, price_premium, price_diesel)
+             VALUES (?, 'gasbuddy', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE name=VALUES(name), brand=VALUES(brand), lat=VALUES(lat), lng=VALUES(lng), address=VALUES(address),
+               price_regular=VALUES(price_regular), price_mid=VALUES(price_mid), price_premium=VALUES(price_premium), price_diesel=VALUES(price_diesel)`,
+            [siteId, first.name, first.brand || '', first.lat, first.long, first.address || '', reg, mid, prem, dies]
+          );
+        } catch (dbErr: any) {
+          console.warn(`[Prices Proxy] 保存站点 ${siteId} 失败:`, dbErr.message);
+        }
+      }
+      console.log(`[Prices Proxy] ✓ 已保存 ${groups.size} 个加油站到本地 DB`);
+    }
 
     console.log(`[Prices Proxy] ✓ 返回 ${response.data?.count || 0} 条`);
     return res.json(response.data);
