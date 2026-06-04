@@ -189,7 +189,16 @@ router.get('/stats', async (req: Request, res: Response) => {
     const vehicleId = req.query.vehicleId ? parseInt(req.query.vehicleId as string) : null;
 
     if (!vehicleId) {
-      return res.status(400).json({ error: '请选择车辆' });
+      return res.json({
+        success: true,
+        stats: {
+          totalCount: 0,
+          totalAmount: 0,
+          totalVolume: 0,
+          avgEfficiency: 0,
+        },
+        history: [],
+      });
     }
 
     let statsSql = `SELECT 

@@ -181,15 +181,15 @@ const unitLabel = computed(() => {
 uniOnShow(async () => {
   await fetchStats();
   await vehicleStore.fetchVehicles();
-  // 如果有车辆但未选中，自动弹出面板提示选择
-  if (vehicleStore.vehicles.length > 0 && !vehicleStore.selectedVehicleId) {
-    showVehicle.value = true;
-  }
 });
 
 async function fetchStats() {
   try {
-    const result = await get<any>('/records/stats');
+    const params: Record<string, any> = {};
+    if (vehicleStore.selectedVehicleId) {
+      params.vehicleId = vehicleStore.selectedVehicleId;
+    }
+    const result = await get<any>('/records/stats', params);
     if (result.success) {
       stats.value = {
         totalCount: result.stats?.totalCount || 0,

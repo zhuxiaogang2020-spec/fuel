@@ -41,13 +41,8 @@ cd /d "%~dp0server" || (
 echo [INFO] Working directory: %CD%
 echo(
 
-:: Check port 3000
-netstat -ano 2^>nul | findstr ":3000 " >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [WARN] Port 3000 is already in use.
-    echo        Close the existing server first.
-    pause
-)
+:: Kill any existing process on port 3000
+powershell -NoLogo -NoProfile -Command "netstat -ano | Select-String ':3000 ' | ForEach-Object { $p = ($_.Line -split '\s+', 6 | Select-Object -Last 1); Write-Host ('[INFO] Killing process PID ' + $p + ' (port 3000)...'); Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }"
 echo(
 
 :: Install dependencies if needed

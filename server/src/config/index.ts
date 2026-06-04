@@ -69,7 +69,7 @@ export const config = {
   // 替代本地 Puppeteer 爬虫，由 FastAPI 第三方服务处理反爬
   gasBuddyApi: {
     /** FastAPI 服务地址（含协议和端口） */
-    baseUrl: process.env.GASBUDDY_API_URL || 'http://localhost:8000',
+    baseUrl: process.env.GASBUDDY_API_URL || 'http://gas.dunbo.uk',
     /** 价格查询路径 */
     pricesPath: process.env.GASBUDDY_PRICES_PATH || '/prices',
     /** 搜索半径（公里），默认 25 */

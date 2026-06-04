@@ -5,7 +5,7 @@ export interface FuelEfficiencyResult {
   value: number;
   unit: 'L/100km' | 'MPG';
   lastOdometer?: number;
-  currentOdometer?: number;
+  currentOdometer?: number;     
   volume?: number;
 }
 
